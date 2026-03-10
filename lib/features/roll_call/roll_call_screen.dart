@@ -137,7 +137,7 @@ class _RollCallScreenState extends ConsumerState<RollCallScreen>
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -163,7 +163,7 @@ class _RollCallScreenState extends ConsumerState<RollCallScreen>
                             color: Theme.of(context)
                                 .colorScheme
                                 .onPrimaryContainer
-                                .withOpacity(0.7),
+                                .withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -201,20 +201,26 @@ class _RollCallScreenState extends ConsumerState<RollCallScreen>
               ),
             ],
             
-            // 评分按钮
-            if (selectedStudent != null) ...[
-              const SizedBox(height: 32),
-              const Text(
-                '回答质量评分',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildScoreButtons(),
-              const SizedBox(height: 12),
-            ],
+            // 评分区域 - 固定高度防止布局跳动
+            const SizedBox(height: 32),
+            SizedBox(
+              height: 120, // 固定高度
+              child: selectedStudent != null
+                  ? Column(
+                      children: [
+                        const Text(
+                          '回答质量评分',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildScoreButtons(),
+                      ],
+                    )
+                  : const SizedBox(), // 占位空间
+            ),
           ],
         ),
       ),
