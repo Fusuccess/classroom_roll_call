@@ -8,6 +8,9 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 预加载班级数据
+    final classes = ref.watch(classProvider);
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('课堂点名'),
@@ -30,7 +33,7 @@ class HomeScreen extends ConsumerWidget {
             icon: Icons.touch_app,
             title: '开始点名',
             color: Colors.green,
-            onTap: () => _showClassSelector(context, ref),
+            onTap: () => _showClassSelector(context, classes),
           ),
           _buildMenuCard(
             context,
@@ -78,9 +81,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  void _showClassSelector(BuildContext context, WidgetRef ref) {
-    final classes = ref.read(classProvider);
-    
+  void _showClassSelector(BuildContext context, List classes) {
     if (classes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('请先在班级管理中创建班级')),

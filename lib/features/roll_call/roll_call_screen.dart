@@ -393,21 +393,29 @@ class _RollCallScreenState extends ConsumerState<RollCallScreen>
         note: '',
       );
       
-      // 删除旧记录并添加新记录（Hive 的更新方式）
+      // 更新记录
       await ref.read(callRecordProvider.notifier).updateRecord(updatedRecord);
     }
 
-    // 重新计算学生统计（只计算已评分的记录）
-    final scoredRecords = allRecords
-        .where((r) => r.studentId == student.id && r.score > 0)
+    // 重新获取所有记录（包含刚更新的）
+    final updatedAllRecords = ref.read(callRecordProvider);
+    
+    // 获取该学生的所有记录
+    final studentRecords = updatedAllRecords
+        .where((r) => r.studentId == student.id)
         .toList();
+    
+    // 计算已评分的记录
+    final scoredRecords = studentRecords.where((r) => r.score > 0).toList();
     
     final totalScore = scoredRecords.fold<int>(0, (sum, r) => sum + r.score);
     final avgScore = scoredRecords.isEmpty ? 0.0 : totalScore / scoredRecords.length;
 
+    // 更新学生统计（包括点名次数和平均分）
     await ref.read(studentProvider.notifier).updateStudent(
           student.copyWith(
-            avgScore: avgScore,
+            callCount: studentRecords.length,  // 所有记录数（包括未评分）
+            avgScore: avgScore,                 // 只计算已评分的平均分
           ),
         );
 
