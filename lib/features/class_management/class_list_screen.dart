@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/class_group.dart';
+import '../../core/models/student.dart';
 import '../../core/providers/class_provider.dart';
 import '../../core/providers/student_provider.dart';
+import '../../core/providers/call_record_provider.dart';
 import 'widgets/class_form_dialog.dart';
+import 'widgets/export_dialog.dart';
 import 'student_management_screen.dart';
 
 class ClassListScreen extends ConsumerWidget {
@@ -108,6 +111,16 @@ class ClassListScreen extends ConsumerWidget {
               ),
             ),
             const PopupMenuItem(
+              value: 'export',
+              child: Row(
+                children: [
+                  Icon(Icons.download),
+                  SizedBox(width: 8),
+                  Text('导出数据'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
               value: 'edit',
               child: Row(
                 children: [
@@ -138,6 +151,9 @@ class ClassListScreen extends ConsumerWidget {
                         StudentManagementScreen(classGroup: classGroup),
                   ),
                 );
+                break;
+              case 'export':
+                _showExportDialog(context, ref, classGroup);
                 break;
               case 'edit':
                 _showEditClassDialog(context, ref, classGroup);
@@ -230,6 +246,45 @@ class ClassListScreen extends ConsumerWidget {
             child: const Text('删除'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showExportDialog(
+    BuildContext context,
+    WidgetRef ref,
+    classGroup,
+  ) {
+    final students = ref.read(studentProvider);
+    final records = ref.read(callRecordProvider);
+    
+    final classStudents = students
+        .where((s) => s.classId == classGroup.id)
+        .toList();
+    
+    final classRecords = records
+        .where((r) {
+          final student = students.firstWhere(
+            (s) => s.id == r.studentId,
+            orElse: () => Student(
+              id: '',
+              name: '',
+              studentId: '',
+              classId: '',
+              callCount: 0,
+              avgScore: 0.0,
+            ),
+          );
+          return student.classId == classGroup.id;
+        })
+        .toList();
+
+    showDialog(
+      context: context,
+      builder: (context) => ExportDialog(
+        className: classGroup.name,
+        students: classStudents,
+        records: classRecords,
       ),
     );
   }
