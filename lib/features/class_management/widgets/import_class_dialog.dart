@@ -1,6 +1,4 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import '../../../core/models/class_group.dart';
 import '../../../core/models/student.dart';
 import '../../../core/services/import_export_service.dart';
@@ -19,9 +17,23 @@ class ImportClassDialog extends StatefulWidget {
 
 class _ImportClassDialogState extends State<ImportClassDialog> {
   bool isLoading = false;
-  List<Map<String, String>>? importedStudents;
+  List<Student>? importedStudents;
   String? classNameInput;
   String? errorMessage;
+  String? selectedFilePath;
+  TextEditingController? _classNameController;
+
+  @override
+  void initState() {
+    super.initState();
+    _classNameController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _classNameController?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,10 +60,10 @@ class _ImportClassDialogState extends State<ImportClassDialog> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    '• CSV 文件格式：班级名称, 学生姓名, 学号\n'
+                    '• CSV 文件必须包含"学生姓名"和"学号"列\n'
                     '• 第一行为标题行\n'
                     '• 每行一个学生\n'
-                    '• 学生姓名和学号为必填项',
+                    '• 系统会自动匹配这两列',
                     style: TextStyle(fontSize: 12),
                   ),
                 ],
@@ -62,6 +74,7 @@ class _ImportClassDialogState extends State<ImportClassDialog> {
             // 班级名称输入
             if (importedStudents == null)
               TextField(
+                controller: _classNameController,
                 decoration: InputDecoration(
                   labelText: '班级名称',
                   hintText: '请输入班级名称',
@@ -76,6 +89,41 @@ class _ImportClassDialogState extends State<ImportClassDialog> {
               ),
 
             if (importedStudents == null) const SizedBox(height: 16),
+
+            // 选择文件显示
+            if (importedStudents == null && selectedFilePath != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '已选择文件',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          Text(
+                            selectedFilePath!.split('/').last,
+                            style: Theme.of(context).textTheme.labelSmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // 导入按钮
             if (importedStudents == null)
@@ -111,21 +159,31 @@ class _ImportClassDialogState extends State<ImportClassDialog> {
                   border: Border.all(color: Colors.grey[300]!),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: importedStudents!.length,
-                  itemBuilder: (context, index) {
-                    final student = importedStudents![index];
-                    return ListTile(
-                      dense: true,
-                      leading: CircleAvatar(
-                        child: Text('${index + 1}'),
+                child: importedStudents!.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            '没有学生数据',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: importedStudents!.length,
+                        itemBuilder: (context, index) {
+                          final student = importedStudents![index];
+                          return ListTile(
+                            dense: true,
+                            leading: CircleAvatar(
+                              child: Text('${index + 1}'),
+                            ),
+                            title: Text(student.name),
+                            subtitle: Text('学号：${student.studentId}'),
+                          );
+                        },
                       ),
-                      title: Text(student['name'] ?? ''),
-                      subtitle: Text('学号：${student['studentId'] ?? ''}'),
-                    );
-                  },
-                ),
               ),
             ],
 
@@ -139,9 +197,22 @@ class _ImportClassDialogState extends State<ImportClassDialog> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.red),
                 ),
-                child: Text(
-                  errorMessage!,
-                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '导入失败',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      errorMessage!,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -159,7 +230,18 @@ class _ImportClassDialogState extends State<ImportClassDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('取消'),
         ),
-        if (importedStudents != null)
+        if (importedStudents != null && !isLoading)
+          TextButton(
+            onPressed: () {
+              setState(() {
+                importedStudents = null;
+                selectedFilePath = null;
+                errorMessage = null;
+              });
+            },
+            child: const Text('重新选择'),
+          ),
+        if (importedStudents != null && !isLoading)
           FilledButton(
             onPressed: () {
               _confirmImport();
@@ -177,47 +259,55 @@ class _ImportClassDialogState extends State<ImportClassDialog> {
         errorMessage = null;
       });
 
-      // Web 端和移动端的文件选择需要不同的实现
-      // 这里先显示提示，实际应用中需要集成 file_picker 或其他文件选择方案
-      if (kIsWeb) {
-        // Web 端：使用 file_picker 或其他方案
-        _showFilePickerTip();
-      } else {
-        // 移动端/桌面端：使用 file_picker
-        _showFilePickerTip();
+      // 选择文件
+      final filePath = await ImportExportService.pickCSVFile();
+      if (filePath == null) {
+        setState(() {
+          isLoading = false;
+        });
+        return;
       }
 
+      // 验证班级名称
+      if (classNameInput == null || classNameInput!.isEmpty) {
+        setState(() {
+          isLoading = false;
+          errorMessage = '请输入班级名称';
+        });
+        return;
+      }
+
+      // 自动匹配列
+      final (nameColumnIndex, idColumnIndex) =
+          await ImportExportService.autoMatchColumns(filePath);
+
+      // 创建班级 ID（在导入前生成）
+      final classId = DateTime.now().millisecondsSinceEpoch.toString();
+
+      // 导入班级和学生
+      final (classGroup, students) =
+          await ImportExportService.importClassAndStudentsFromCSV(
+        filePath,
+        classNameInput!,
+        classId,
+        nameColumnIndex: nameColumnIndex,
+        studentIdColumnIndex: idColumnIndex,
+      );
+
+      if (!mounted) return;
+
       setState(() {
         isLoading = false;
+        selectedFilePath = filePath;
+        importedStudents = students;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         isLoading = false;
-        errorMessage = '文件选择失败: $e';
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
       });
     }
-  }
-
-  void _showFilePickerTip() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('提示'),
-        content: const Text(
-          '文件选择功能需要在实际设备上测试。\n\n'
-          '您可以：\n'
-          '1. 使用导出功能生成 CSV 模板\n'
-          '2. 在 Excel 中编辑 CSV 文件\n'
-          '3. 使用此导入功能导入修改后的文件',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('确定'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _confirmImport() {
@@ -235,39 +325,32 @@ class _ImportClassDialogState extends State<ImportClassDialog> {
       return;
     }
 
-    // 创建班级对象
-    final classGroup = ClassGroup(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: classNameInput!,
-      description: '导入于 ${DateTime.now().toString().split('.')[0]}',
-      createdAt: DateTime.now(),
-    );
+    try {
+      // 创建班级对象
+      final classGroup = ClassGroup(
+        id: importedStudents!.first.classId,
+        name: classNameInput!,
+        description: '导入于 ${DateTime.now().toString().split('.')[0]}',
+        createdAt: DateTime.now(),
+      );
 
-    // 创建学生对象列表
-    final students = importedStudents!
-        .map((data) => Student(
-              id: DateTime.now().millisecondsSinceEpoch.toString() +
-                  importedStudents!.indexOf(data).toString(),
-              name: data['name'] ?? '',
-              studentId: data['studentId'] ?? '',
-              classId: classGroup.id,
-              callCount: 0,
-              avgScore: 0.0,
-            ))
-        .toList();
+      // 调用回调函数
+      widget.onImport(classGroup, importedStudents!);
 
-    // 调用回调函数
-    widget.onImport(classGroup, students);
+      // 关闭对话框
+      Navigator.pop(context);
 
-    // 关闭对话框
-    Navigator.pop(context);
-
-    // 显示成功提示
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('已导入班级"$classNameInput"，共 ${students.length} 个学生'),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+      // 显示成功提示
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('已导入班级"$classNameInput"，共 ${importedStudents!.length} 个学生'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        errorMessage = '导入失败：$e';
+      });
+    }
   }
 }

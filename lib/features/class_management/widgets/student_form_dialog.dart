@@ -71,6 +71,12 @@ class _StudentFormDialogState extends State<StudentFormDialog> {
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.badge),
               ),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return '请输入学号';
+                }
+                return null;
+              },
             ),
           ],
         ),

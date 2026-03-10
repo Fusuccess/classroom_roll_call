@@ -326,7 +326,7 @@ class _RollCallScreenState extends ConsumerState<RollCallScreen>
         return ElevatedButton(
           onPressed: () => _recordScore(score),
           style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
             backgroundColor: _getScoreColor(score),
             foregroundColor: Colors.white,
           ),
@@ -337,8 +337,8 @@ class _RollCallScreenState extends ConsumerState<RollCallScreen>
                 '$score分',
                 style: const TextStyle(fontSize: 16),
               ),
-              const SizedBox(width: 4),
-              const Icon(Icons.star, size: 16),
+              const SizedBox(width: 2),
+              const Icon(Icons.star, size: 13),
             ],
           ),
         );

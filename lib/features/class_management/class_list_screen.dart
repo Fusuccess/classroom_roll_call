@@ -7,6 +7,7 @@ import '../../core/providers/student_provider.dart';
 import '../../core/providers/call_record_provider.dart';
 import 'widgets/class_form_dialog.dart';
 import 'widgets/export_dialog.dart';
+import 'widgets/import_class_dialog.dart';
 import 'student_management_screen.dart';
 
 class ClassListScreen extends ConsumerWidget {
@@ -39,9 +40,27 @@ class ClassListScreen extends ConsumerWidget {
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddClassDialog(context, ref),
-        child: const Icon(Icons.add),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            FloatingActionButton.extended(
+              onPressed: () => _showImportDialog(context, ref),
+              icon: const Icon(Icons.upload_file),
+              label: const Text('导入'),
+              heroTag: 'import',
+            ),
+            const SizedBox(width: 16),
+            FloatingActionButton.extended(
+              onPressed: () => _showAddClassDialog(context, ref),
+              icon: const Icon(Icons.add),
+              label: const Text('新增'),
+              heroTag: 'add',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -181,6 +200,31 @@ class ClassListScreen extends ConsumerWidget {
                   createdAt: DateTime.now(),
                 ),
               );
+        },
+      ),
+    );
+  }
+
+  void _showImportDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => ImportClassDialog(
+        onImport: (classGroup, students) {
+          // 添加班级
+          ref.read(classProvider.notifier).addClass(classGroup);
+          
+          // 添加学生
+          for (final student in students) {
+            ref.read(studentProvider.notifier).addStudent(student);
+          }
+          
+          // 显示成功提示
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('已导入班级"${classGroup.name}"，共 ${students.length} 个学生'),
+              duration: const Duration(seconds: 3),
+            ),
+          );
         },
       ),
     );
