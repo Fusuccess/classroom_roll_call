@@ -19,32 +19,50 @@ class RollCallScreen extends ConsumerStatefulWidget {
 }
 
 class _RollCallScreenState extends ConsumerState<RollCallScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   Student? selectedStudent;
   bool isAnimating = false;
-  List<String> calledStudentIds = []; // 本次已点名的学生
-  bool avoidRepeat = true; // 避免重复点名
-  late AnimationController _animationController;
+  List<String> calledStudentIds = [];
+  bool avoidRepeat = true;
+  
+  late AnimationController _scaleAnimationController;
+  late AnimationController _rotationAnimationController;
   late Animation<double> _scaleAnimation;
+  late Animation<double> _rotationAnimation;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+    
+    _scaleAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+    
+    _rotationAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
       CurvedAnimation(
-        parent: _animationController,
+        parent: _scaleAnimationController,
         curve: Curves.elasticOut,
+      ),
+    );
+    
+    _rotationAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _rotationAnimationController,
+        curve: Curves.easeInOut,
       ),
     );
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _scaleAnimationController.dispose();
+    _rotationAnimationController.dispose();
     super.dispose();
   }
 
@@ -126,51 +144,74 @@ class _RollCallScreenState extends ConsumerState<RollCallScreen>
             _buildStatistics(students.length, availableCount),
             const SizedBox(height: 32),
             
-            // 点名圆圈
-            ScaleTransition(
-              scale: _scaleAnimation,
-              child: Container(
-                width: 220,
-                height: 220,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        selectedStudent?.name ?? '?',
-                        style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
-                            ),
-                        textAlign: TextAlign.center,
+            // 点名圆圈 - 改进的动画效果
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                // 旋转背景圆环
+                if (isAnimating)
+                  RotationTransition(
+                    turns: _rotationAnimation,
+                    child: Container(
+                      width: 240,
+                      height: 240,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                          width: 3,
+                        ),
                       ),
-                      if (selectedStudent != null) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          '学号：${selectedStudent!.studentId}',
-                          style: TextStyle(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onPrimaryContainer
-                                .withValues(alpha: 0.7),
-                          ),
+                    ),
+                  ),
+                
+                // 主圆圈
+                ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: Container(
+                    width: 220,
+                    height: 220,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
                         ),
                       ],
-                    ],
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            selectedStudent?.name ?? '?',
+                            style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                ),
+                            textAlign: TextAlign.center,
+                          ),
+                          if (selectedStudent != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              '学号：${selectedStudent!.studentId}',
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onPrimaryContainer
+                                    .withValues(alpha: 0.7),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
             const SizedBox(height: 48),
             
@@ -328,8 +369,11 @@ class _RollCallScreenState extends ConsumerState<RollCallScreen>
 
     setState(() => isAnimating = true);
 
-    // 动画效果：快速切换学生名字
-    for (int i = 0; i < 10; i++) {
+    // 启动旋转动画
+    _rotationAnimationController.forward();
+
+    // 快速切换学生名字（制造悬念效果）
+    for (int i = 0; i < 12; i++) {
       await Future.delayed(const Duration(milliseconds: 100));
       if (mounted) {
         setState(() {
@@ -351,10 +395,13 @@ class _RollCallScreenState extends ConsumerState<RollCallScreen>
       }
     });
 
-    // 播放动画
-    _animationController.forward().then((_) {
-      _animationController.reverse();
+    // 播放缩放动画
+    _scaleAnimationController.forward().then((_) {
+      _scaleAnimationController.reverse();
     });
+
+    // 重置旋转动画
+    _rotationAnimationController.reset();
 
     // 立即创建点名记录（未评分状态）
     final record = CallRecord(
