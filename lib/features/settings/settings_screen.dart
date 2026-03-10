@@ -40,36 +40,6 @@ class SettingsScreen extends ConsumerWidget {
             context,
             title: '数据管理',
             children: [
-              Container(
-                color: Colors.orange.withOpacity(0.1),
-                child: ListTile(
-                  leading: const Icon(Icons.download, color: Colors.orange),
-                  title: Row(
-                    children: [
-                      const Text('导出数据'),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.orange,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          '开发中',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  subtitle: const Text('导出所有班级和学生数据'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => _showExportDialog(context),
-                ),
-              ),
               ListTile(
                 leading: const Icon(Icons.delete_sweep),
                 title: const Text('清除点名记录'),
@@ -93,7 +63,7 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.info),
                 title: const Text('应用版本'),
-                subtitle: const Text('1.0.0'),
+                subtitle: const Text('1.0.1'),
               ),
               ListTile(
                 leading: const Icon(Icons.description),
@@ -262,22 +232,6 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showExportDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('导出数据'),
-        content: const Text('导出功能开发中，敬请期待。\n\n将支持导出为 Excel 或 CSV 格式。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('知道了'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showClearRecordsDialog(
     BuildContext context,
     WidgetRef ref,
@@ -394,7 +348,7 @@ class SettingsScreen extends ConsumerWidget {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               SizedBox(height: 8),
-              Text('• 添加班级和学生信息\n• 编辑和删除班级\n• 管理学生名单'),
+              Text('• 添加班级和学生信息\n• 编辑和删除班级\n• 导入 CSV 学生名单\n• 管理学生名单'),
               SizedBox(height: 16),
               Text(
                 '随机点名',
@@ -408,14 +362,14 @@ class SettingsScreen extends ConsumerWidget {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               SizedBox(height: 8),
-              Text('• 查看点名统计\n• 学生排名\n• 分数分布\n• 按班级筛选'),
+              Text('• 查看点名统计\n• 学生排名\n• 分数分布\n• 导出数据到 CSV\n• 按班级筛选'),
               SizedBox(height: 16),
               Text(
                 '提示',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               SizedBox(height: 8),
-              Text('• 所有数据保存在本地\n• 支持多个班级管理\n• 可以不评分直接点名下一个'),
+              Text('• 所有数据保存在本地\n• 支持多个班级管理\n• 可以不评分直接点名下一个\n• 导出文件保存在 Download 文件夹'),
             ],
           ),
         ),
@@ -444,7 +398,7 @@ class SettingsScreen extends ConsumerWidget {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               SizedBox(height: 8),
-              Text('版本：1.0.0'),
+              Text('版本：1.0.1'),
               SizedBox(height: 16),
               Text(
                 '使用的开源库：',
@@ -455,12 +409,16 @@ class SettingsScreen extends ConsumerWidget {
                   '• Riverpod - Remi Rousselet\n'
                   '• Hive - Isar\n'
                   '• Go Router - Flutter Team\n'
-                  '• Intl - Dart Team'),
+                  '• Intl - Dart Team\n'
+                  '• file_picker - Miguel Ruivo\n'
+                  '• csv - Dart Team'),
               SizedBox(height: 16),
               Text(
                 '本应用采用 MIT 许可证',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
+              SizedBox(height: 8),
+              Text('© 2026 南漳云联软件技术工作室\nAll Rights Reserved'),
             ],
           ),
         ),
