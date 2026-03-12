@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'dart:io';
 import '../../core/providers/student_provider.dart';
 import '../../core/providers/class_provider.dart';
 import '../../core/providers/call_record_provider.dart';
 import '../../core/providers/theme_provider.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/services/import_export_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -25,6 +27,26 @@ class SettingsScreen extends ConsumerWidget {
       ),
       body: ListView(
         children: [
+          _buildSection(
+            context,
+            title: '安全',
+            children: [
+              ListTile(
+                leading: const Icon(Icons.lock),
+                title: const Text('修改密码'),
+                subtitle: const Text('更改应用访问密码'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showChangePasswordDialog(context, ref),
+              ),
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.red),
+                title: const Text('登出', style: TextStyle(color: Colors.red)),
+                subtitle: const Text('退出当前账户'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showLogoutDialog(context, ref),
+              ),
+            ],
+          ),
           _buildSection(
             context,
             title: '外观',
@@ -79,7 +101,7 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.info),
                 title: const Text('应用版本'),
-                subtitle: const Text('1.0.2'),
+                subtitle: const Text('1.0.3'),
               ),
               ListTile(
                 leading: const Icon(Icons.description),
@@ -360,6 +382,17 @@ class SettingsScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
+                '登陆与安全',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              SizedBox(height: 8),
+              Text('• 应用启动时需要输入密码才能进入\n'
+                  '• 默认密码为 123456\n'
+                  '• 可在设置中修改密码\n'
+                  '• 登陆状态会被保存，刷新页面无需重新登陆\n'
+                  '• 可在设置中登出，登出后需要重新输入密码'),
+              SizedBox(height: 16),
+              Text(
                 '班级管理',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
@@ -397,7 +430,8 @@ class SettingsScreen extends ConsumerWidget {
               SizedBox(height: 8),
               Text('• 所有数据保存在本地\n• 支持多个班级管理\n• 可以不评分直接点名下一个\n'
                   '• 导出文件保存在 Download 文件夹\n'
-                  '• 建议定期导出备份以防数据丢失'),
+                  '• 建议定期导出备份以防数据丢失\n'
+                  '• 部署到服务器前请修改默认密码'),
             ],
           ),
         ),
@@ -426,7 +460,7 @@ class SettingsScreen extends ConsumerWidget {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               SizedBox(height: 8),
-              Text('版本：1.0.2'),
+              Text('版本：1.0.3'),
               SizedBox(height: 16),
               Text(
                 '使用的开源库：',
@@ -490,6 +524,158 @@ class SettingsScreen extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context, WidgetRef ref) {
+    final oldPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool obscureOld = true;
+    bool obscureNew = true;
+    bool obscureConfirm = true;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('修改密码'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: oldPasswordController,
+                  obscureText: obscureOld,
+                  decoration: InputDecoration(
+                    labelText: '旧密码',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureOld ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => obscureOld = !obscureOld),
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: newPasswordController,
+                  obscureText: obscureNew,
+                  decoration: InputDecoration(
+                    labelText: '新密码',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureNew ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => obscureNew = !obscureNew),
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: confirmPasswordController,
+                  obscureText: obscureConfirm,
+                  decoration: InputDecoration(
+                    labelText: '确认新密码',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(obscureConfirm ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => obscureConfirm = !obscureConfirm),
+                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                oldPasswordController.dispose();
+                newPasswordController.dispose();
+                confirmPasswordController.dispose();
+                Navigator.pop(context);
+              },
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (oldPasswordController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('请输入旧密码')),
+                  );
+                  return;
+                }
+                if (newPasswordController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('请输入新密码')),
+                  );
+                  return;
+                }
+                if (newPasswordController.text != confirmPasswordController.text) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('两次输入的密码不一致')),
+                  );
+                  return;
+                }
+
+                final success = await ref.read(authProvider.notifier).changePassword(
+                  oldPasswordController.text,
+                  newPasswordController.text,
+                );
+
+                if (context.mounted) {
+                  oldPasswordController.dispose();
+                  newPasswordController.dispose();
+                  confirmPasswordController.dispose();
+                  Navigator.pop(context);
+
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('密码修改成功')),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(ref.read(authProvider).error ?? '修改密码失败'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('确认修改'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认登出'),
+        content: const Text('确定要登出吗？\n\n登出后需要重新输入密码才能访问应用。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await ref.read(authProvider.notifier).logout();
+              if (context.mounted) {
+                Navigator.pop(context);
+                context.go('/login');
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('确认登出'),
           ),
         ],
       ),
