@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io';
 import '../../core/providers/student_provider.dart';
 import '../../core/providers/class_provider.dart';
 import '../../core/providers/call_record_provider.dart';
 import '../../core/providers/theme_provider.dart';
+import '../../core/services/import_export_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -40,6 +42,20 @@ class SettingsScreen extends ConsumerWidget {
             context,
             title: '数据管理',
             children: [
+              ListTile(
+                leading: const Icon(Icons.backup),
+                title: const Text('导出备份'),
+                subtitle: const Text('将所有数据导出为备份文件'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showExportBackupDialog(context, ref, classes, students, records),
+              ),
+              ListTile(
+                leading: const Icon(Icons.restore),
+                title: const Text('导入备份'),
+                subtitle: const Text('从备份文件恢复数据'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showImportBackupDialog(context, ref),
+              ),
               ListTile(
                 leading: const Icon(Icons.delete_sweep),
                 title: const Text('清除点名记录'),
@@ -461,6 +477,189 @@ class SettingsScreen extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showExportBackupDialog(
+    BuildContext context,
+    WidgetRef ref,
+    List classes,
+    List students,
+    List records,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('导出备份'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('将导出以下数据：'),
+            const SizedBox(height: 12),
+            Text('• ${classes.length} 个班级'),
+            Text('• ${students.length} 名学生'),
+            Text('• ${records.length} 条点名记录'),
+            const SizedBox(height: 16),
+            Text(
+              '备份文件将保存为 JSON 格式，可用于恢复数据。',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              try {
+                await ImportExportService.exportDatabaseBackup(
+                  classes.cast(),
+                  students.cast(),
+                  records.cast(),
+                );
+                
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('备份导出成功')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('导出失败: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('导出'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showImportBackupDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('导入备份'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('⚠️ 警告'),
+            SizedBox(height: 8),
+            Text('导入备份将覆盖当前所有数据。'),
+            SizedBox(height: 16),
+            Text(
+              '请确保已备份当前数据后再进行此操作。',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              try {
+                final (filePath, fileBytes) = await ImportExportService.pickBackupFile();
+                if (filePath == null && fileBytes == null) {
+                  return;
+                }
+
+                if (!context.mounted) return;
+
+                // 显示加载对话框
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const AlertDialog(
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('正在导入备份...'),
+                      ],
+                    ),
+                  ),
+                );
+
+                // 读取文件内容
+                List<int> bytes;
+                if (fileBytes != null) {
+                  bytes = fileBytes;
+                } else {
+                  final file = File(filePath!);
+                  bytes = await file.readAsBytes();
+                }
+
+                // 导入备份
+                final (classes, students, records) =
+                    await ImportExportService.importDatabaseBackup(bytes);
+
+                if (!context.mounted) return;
+                Navigator.pop(context); // 关闭加载对话框
+
+                // 清除现有数据
+                final currentClasses = ref.read(classProvider);
+                final currentStudents = ref.read(studentProvider);
+                final currentRecords = ref.read(callRecordProvider);
+
+                for (final classGroup in currentClasses) {
+                  await ref.read(classProvider.notifier).deleteClass(classGroup.id);
+                }
+                for (final student in currentStudents) {
+                  await ref.read(studentProvider.notifier).deleteStudent(student.id);
+                }
+                for (final record in currentRecords) {
+                  await ref.read(callRecordProvider.notifier).deleteRecord(record.id);
+                }
+
+                // 导入新数据
+                for (final classGroup in classes) {
+                  await ref.read(classProvider.notifier).addClass(classGroup);
+                }
+                for (final student in students) {
+                  await ref.read(studentProvider.notifier).addStudent(student);
+                }
+                for (final record in records) {
+                  await ref.read(callRecordProvider.notifier).addRecord(record);
+                }
+
+                if (context.mounted) {
+                  Navigator.pop(context); // 关闭导入对话框
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '备份导入成功\n'
+                        '已导入 ${classes.length} 个班级、${students.length} 名学生、${records.length} 条记录',
+                      ),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.pop(context); // 关闭加载对话框
+                  Navigator.pop(context); // 关闭导入对话框
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('导入失败: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('选择文件'),
           ),
         ],
       ),

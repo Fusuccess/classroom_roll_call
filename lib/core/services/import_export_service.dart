@@ -415,4 +415,154 @@ class ImportExportService {
       throw Exception('文件选择失败: $e');
     }
   }
+
+  /// 导出完整数据库备份（JSON格式）
+  /// 返回文件路径或下载状态
+  static Future<String> exportDatabaseBackup(
+    List<ClassGroup> classes,
+    List<Student> students,
+    List<CallRecord> records,
+  ) async {
+    try {
+      // 准备备份数据
+      final backupData = {
+        'version': '1.0',
+        'timestamp': DateTime.now().toIso8601String(),
+        'classes': classes.map((c) => {
+          'id': c.id,
+          'name': c.name,
+          'description': c.description,
+          'createdAt': c.createdAt.toIso8601String(),
+        }).toList(),
+        'students': students.map((s) => {
+          'id': s.id,
+          'name': s.name,
+          'studentId': s.studentId,
+          'classId': s.classId,
+          'callCount': s.callCount,
+          'avgScore': s.avgScore,
+        }).toList(),
+        'records': records.map((r) => {
+          'id': r.id,
+          'studentId': r.studentId,
+          'studentName': r.studentName,
+          'timestamp': r.timestamp.toIso8601String(),
+          'score': r.score,
+          'note': r.note,
+        }).toList(),
+      };
+
+      final jsonContent = jsonEncode(backupData);
+
+      if (kIsWeb) {
+        // Web 端：直接下载
+        _downloadFileWeb(jsonContent, 'backup_${DateTime.now().millisecondsSinceEpoch}.json');
+        return 'Web 端已下载备份文件';
+      } else {
+        // 移动端/桌面端：保存到 Download 文件夹
+        final directory = await _getDownloadDirectory();
+        if (directory == null) {
+          throw Exception('无法访问下载文件夹');
+        }
+        final fileName = 'backup_${DateTime.now().millisecondsSinceEpoch}.json';
+        final file = File('${directory.path}/$fileName');
+        await file.writeAsString(jsonContent);
+        return file.path;
+      }
+    } catch (e) {
+      throw Exception('导出备份失败: $e');
+    }
+  }
+
+  /// 导入数据库备份
+  /// 返回 (班级列表, 学生列表, 点名记录列表)
+  static Future<(List<ClassGroup>, List<Student>, List<CallRecord>)> importDatabaseBackup(
+    List<int> fileBytes,
+  ) async {
+    try {
+      // 解码 JSON
+      final jsonContent = utf8.decode(fileBytes);
+      final backupData = jsonDecode(jsonContent) as Map<String, dynamic>;
+
+      // 验证版本
+      final version = backupData['version'] as String?;
+      if (version != '1.0') {
+        throw Exception('不支持的备份版本: $version');
+      }
+
+      // 解析班级
+      final classes = <ClassGroup>[];
+      final classesData = backupData['classes'] as List<dynamic>? ?? [];
+      for (final classData in classesData) {
+        final data = classData as Map<String, dynamic>;
+        classes.add(ClassGroup(
+          id: data['id'] as String,
+          name: data['name'] as String,
+          description: data['description'] as String? ?? '',
+          createdAt: DateTime.parse(data['createdAt'] as String),
+        ));
+      }
+
+      // 解析学生
+      final students = <Student>[];
+      final studentsData = backupData['students'] as List<dynamic>? ?? [];
+      for (final studentData in studentsData) {
+        final data = studentData as Map<String, dynamic>;
+        students.add(Student(
+          id: data['id'] as String,
+          name: data['name'] as String,
+          studentId: data['studentId'] as String,
+          classId: data['classId'] as String,
+          callCount: data['callCount'] as int? ?? 0,
+          avgScore: (data['avgScore'] as num?)?.toDouble() ?? 0.0,
+        ));
+      }
+
+      // 解析点名记录
+      final records = <CallRecord>[];
+      final recordsData = backupData['records'] as List<dynamic>? ?? [];
+      for (final recordData in recordsData) {
+        final data = recordData as Map<String, dynamic>;
+        records.add(CallRecord(
+          id: data['id'] as String,
+          studentId: data['studentId'] as String,
+          studentName: data['studentName'] as String,
+          timestamp: DateTime.parse(data['timestamp'] as String),
+          score: data['score'] as int? ?? 0,
+          note: data['note'] as String? ?? '',
+        ));
+      }
+
+      return (classes, students, records);
+    } catch (e) {
+      throw Exception('导入备份失败: $e');
+    }
+  }
+
+  /// 选择备份文件
+  /// 返回 (文件路径, 文件字节)
+  static Future<(String?, List<int>?)> pickBackupFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+        allowMultiple: false,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        
+        if (kIsWeb) {
+          // Web 端：使用 bytes
+          return (null, file.bytes);
+        } else {
+          // 移动端/桌面端：使用 path
+          return (file.path, null);
+        }
+      }
+      return (null, null);
+    } catch (e) {
+      throw Exception('文件选择失败: $e');
+    }
+  }
 }
