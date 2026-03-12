@@ -317,34 +317,36 @@ class _RollCallScreenState extends ConsumerState<RollCallScreen>
     );
   }
 
-  Widget _buildScoreButtons() {
-    return Wrap(
-      spacing: 8,
-      alignment: WrapAlignment.center,
+Widget _buildScoreButtons() {
+  return SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(5, (index) {
         final score = index + 1;
-        return ElevatedButton(
-          onPressed: () => _recordScore(score),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            backgroundColor: _getScoreColor(score),
-            foregroundColor: Colors.white,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$score分',
-                style: const TextStyle(fontSize: 16),
-              ),
-              const SizedBox(width: 2),
-              const Icon(Icons.star, size: 13),
-            ],
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: ElevatedButton(
+            onPressed: () => _recordScore(score),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              backgroundColor: _getScoreColor(score),
+              foregroundColor: Colors.white,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('$score分', style: const TextStyle(fontSize: 16)),
+                const SizedBox(width: 2),
+                const Icon(Icons.star, size: 12),
+              ],
+            ),
           ),
         );
       }),
-    );
-  }
+    ),
+  );
+}
 
   Color _getScoreColor(int score) {
     if (score >= 4) return Colors.green;

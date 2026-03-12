@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
@@ -233,20 +234,32 @@ class ImportExportService {
     String classId, {
     int nameColumnIndex = 0,
     int studentIdColumnIndex = 1,
+    List<int>? fileBytes,
   }) async {
     try {
-      final file = File(filePath);
-      if (!await file.exists()) {
-        throw Exception('文件不存在');
+      String content;
+      
+      if (kIsWeb && fileBytes != null) {
+        // Web 端：使用 bytes，必须用 UTF-8 解码处理中文
+        content = utf8.decode(fileBytes);
+      } else {
+        // 移动端/桌面端：使用文件路径
+        final file = File(filePath);
+        if (!await file.exists()) {
+          throw Exception('文件不存在');
+        }
+        content = await file.readAsString();
       }
 
-      final content = await file.readAsString();
       final List<List<dynamic>> rows =
           const CsvToListConverter().convert(content);
 
       if (rows.isEmpty) {
         throw Exception('CSV 文件为空');
       }
+
+      print('Total rows: ${rows.length}');
+      print('Name column index: $nameColumnIndex, ID column index: $studentIdColumnIndex');
 
       // 跳过标题行
       final dataRows = rows.skip(1).toList();
@@ -267,13 +280,18 @@ class ImportExportService {
       for (int i = 0; i < dataRows.length; i++) {
         final row = dataRows[i];
         
+        print('Row $i: ${row.map((v) => v?.toString()).toList()}');
+        
         // 检查列索引是否有效
         if (row.length <= nameColumnIndex || row.length <= studentIdColumnIndex) {
+          print('Row $i: Invalid column indices');
           continue;
         }
 
         final name = row[nameColumnIndex]?.toString().trim() ?? '';
         final studentId = row[studentIdColumnIndex]?.toString().trim() ?? '';
+
+        print('Row $i: name="$name", studentId="$studentId"');
 
         if (name.isEmpty || studentId.isEmpty) continue;
 
@@ -299,14 +317,22 @@ class ImportExportService {
 
   /// 自动匹配 CSV 文件中的学生姓名列和学号列
   /// 返回 (学生姓名列索引, 学号列索引)
-  static Future<(int, int)> autoMatchColumns(String filePath) async {
+  static Future<(int, int)> autoMatchColumns(String filePath, {List<int>? fileBytes}) async {
     try {
-      final file = File(filePath);
-      if (!await file.exists()) {
-        throw Exception('文件不存在');
+      String content;
+      
+      if (kIsWeb && fileBytes != null) {
+        // Web 端：使用 bytes，必须用 UTF-8 解码处理中文
+        content = utf8.decode(fileBytes);
+      } else {
+        // 移动端/桌面端：使用文件路径
+        final file = File(filePath);
+        if (!await file.exists()) {
+          throw Exception('文件不存在');
+        }
+        content = await file.readAsString();
       }
 
-      final content = await file.readAsString();
       final List<List<dynamic>> rows =
           const CsvToListConverter().convert(content);
 
@@ -319,31 +345,42 @@ class ImportExportService {
       int nameColumnIndex = -1;
       int idColumnIndex = -1;
 
-      // 查找学生姓名列和学号列
+      // 调试：打印所有列标题
+      print('CSV Headers: ${headerRow.map((h) => h?.toString()).toList()}');
+
+      // 精确匹配"学生姓名"和"学号"
       for (int i = 0; i < headerRow.length; i++) {
-        final header = headerRow[i]?.toString().toLowerCase().trim() ?? '';
+        final header = headerRow[i]?.toString().trim() ?? '';
+        print('Column $i: "$header"');
         
-        // 匹配学生姓名列
-        if (header.contains('姓名') || header.contains('name') || header.contains('学生')) {
-          if (!header.contains('学号') && !header.contains('id')) {
-            nameColumnIndex = i;
-          }
+        if (header == '学生姓名') {
+          nameColumnIndex = i;
+          print('Found name column at index $i');
         }
-        
-        // 匹配学号列
-        if (header.contains('学号') || header.contains('id') || header.contains('号')) {
+        if (header == '学号') {
           idColumnIndex = i;
+          print('Found id column at index $i');
         }
       }
 
-      // 如果没有找到，尝试使用前两列
-      if (nameColumnIndex == -1 || idColumnIndex == -1) {
-        if (headerRow.length >= 2) {
-          nameColumnIndex = 0;
-          idColumnIndex = 1;
-        } else {
-          throw Exception('CSV 文件必须包含"学生姓名"和"学号"列');
-        }
+      // 如果精确匹配成功，直接返回
+      if (nameColumnIndex != -1 && idColumnIndex != -1) {
+        print('Exact match found: name=$nameColumnIndex, id=$idColumnIndex');
+        return (nameColumnIndex, idColumnIndex);
+      }
+
+      // 如果没有找到，使用默认的前两列（跳过班级名称）
+      // 假设格式为：班级名称, 学生姓名, 学号, ...
+      if (headerRow.length >= 3) {
+        nameColumnIndex = 1;  // 第二列通常是学生姓名
+        idColumnIndex = 2;    // 第三列通常是学号
+        print('Using default columns: name=1, id=2');
+      } else if (headerRow.length >= 2) {
+        nameColumnIndex = 0;
+        idColumnIndex = 1;
+        print('Using fallback columns: name=0, id=1');
+      } else {
+        throw Exception('CSV 文件必须包含"学生姓名"和"学号"列');
       }
 
       return (nameColumnIndex, idColumnIndex);
@@ -353,7 +390,8 @@ class ImportExportService {
   }
 
   /// 选择 CSV 文件
-  static Future<String?> pickCSVFile() async {
+  /// 返回 (文件路径, 文件字节) - Web 端返回 null 路径，移动端返回 null 字节
+  static Future<(String?, List<int>?)> pickCSVFile() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -362,9 +400,17 @@ class ImportExportService {
       );
 
       if (result != null && result.files.isNotEmpty) {
-        return result.files.first.path;
+        final file = result.files.first;
+        
+        if (kIsWeb) {
+          // Web 端：使用 bytes
+          return (null, file.bytes);
+        } else {
+          // 移动端/桌面端：使用 path
+          return (file.path, null);
+        }
       }
-      return null;
+      return (null, null);
     } catch (e) {
       throw Exception('文件选择失败: $e');
     }

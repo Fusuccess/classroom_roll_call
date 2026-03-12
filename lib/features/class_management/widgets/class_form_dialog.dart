@@ -77,7 +77,11 @@ class _ClassFormDialogState extends State<ClassFormDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // 隐藏输入法（iOS 修复）
+            FocusScope.of(context).unfocus();
+            Navigator.pop(context);
+          },
           child: const Text('取消'),
         ),
         FilledButton(
@@ -94,6 +98,8 @@ class _ClassFormDialogState extends State<ClassFormDialog> {
         _nameController.text.trim(),
         _descriptionController.text.trim(),
       );
+      // 隐藏输入法（iOS 修复）
+      FocusScope.of(context).unfocus();
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
