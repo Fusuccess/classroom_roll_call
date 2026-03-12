@@ -79,7 +79,7 @@ class SettingsScreen extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.info),
                 title: const Text('应用版本'),
-                subtitle: const Text('1.0.1'),
+                subtitle: const Text('1.0.2'),
               ),
               ListTile(
                 leading: const Icon(Icons.description),
@@ -381,11 +381,23 @@ class SettingsScreen extends ConsumerWidget {
               Text('• 查看点名统计\n• 学生排名\n• 分数分布\n• 导出数据到 CSV\n• 按班级筛选'),
               SizedBox(height: 16),
               Text(
+                '数据备份',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              SizedBox(height: 8),
+              Text('• 导出备份：将所有数据（班级、学生、点名记录）导出为 JSON 文件\n'
+                  '• 导入备份：从备份文件恢复所有数据\n'
+                  '• 备份文件可在不同设备间转移\n'
+                  '• 导入时会覆盖当前所有数据'),
+              SizedBox(height: 16),
+              Text(
                 '提示',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               SizedBox(height: 8),
-              Text('• 所有数据保存在本地\n• 支持多个班级管理\n• 可以不评分直接点名下一个\n• 导出文件保存在 Download 文件夹'),
+              Text('• 所有数据保存在本地\n• 支持多个班级管理\n• 可以不评分直接点名下一个\n'
+                  '• 导出文件保存在 Download 文件夹\n'
+                  '• 建议定期导出备份以防数据丢失'),
             ],
           ),
         ),
@@ -414,7 +426,7 @@ class SettingsScreen extends ConsumerWidget {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               SizedBox(height: 8),
-              Text('版本：1.0.1'),
+              Text('版本：1.0.2'),
               SizedBox(height: 16),
               Text(
                 '使用的开源库：',
@@ -427,7 +439,8 @@ class SettingsScreen extends ConsumerWidget {
                   '• Go Router - Flutter Team\n'
                   '• Intl - Dart Team\n'
                   '• file_picker - Miguel Ruivo\n'
-                  '• csv - Dart Team'),
+                  '• csv - Dart Team\n'
+                  '• convert (dart:convert) - Dart Team'),
               SizedBox(height: 16),
               Text(
                 '本应用采用 MIT 许可证',
